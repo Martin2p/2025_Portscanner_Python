@@ -24,3 +24,37 @@ martin.tastler@posteo.de
 Date: June 2025
 
 """
+"""
+import sys
+import os
+from PySide6.QtCore import QFile
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QApplication
+
+def resource_path(relative_path):
+    """ Looks for the absolute resource-path, also if the program runs as EXE
+    Ermittle den absoluten Pfad zur Ressource, auch wenn das Programm als EXE läuft """
+    try:
+        # PyInstaller erstellt temporären Ordner und speichert den Pfad darin in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+app = QApplication(sys.argv)
+
+ui_path = resource_path("portscanner_gui.ui")
+
+file = QFile(ui_path)
+if not file.open(QFile.ReadOnly):
+    raise RuntimeError(f"Can not open UI-File: {ui_path}")
+
+loader = QUiLoader()
+window = loader.load(file)
+file.close()
+
+window.show()
+
+sys.exit(app.exec())
