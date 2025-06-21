@@ -32,29 +32,41 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 
 def resource_path(relative_path):
-    """ Looks for the absolute resource-path, also if the program runs as EXE
-    Ermittle den absoluten Pfad zur Ressource, auch wenn das Programm als EXE läuft """
+    """Ermittelt den absoluten Pfad zur Ressource, auch wenn das Programm als EXE läuft."""
     try:
-        # PyInstaller erstellt temporären Ordner und speichert den Pfad darin in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
+        base_path = sys._MEIPASS  # PyInstaller temporärer Ordner
+    except AttributeError:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 
-app = QApplication(sys.argv)
+class MainApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-ui_path = resource_path("portscanner_gui.ui")
+        ui_path = resource_path("portscanner_gui.ui")
 
-file = QFile(ui_path)
-if not file.open(QFile.ReadOnly):
-    raise RuntimeError(f"Can not open UI-File: {ui_path}")
+        file = QFile(ui_path)
+        if not file.open(QFile.ReadOnly):
+            raise RuntimeError(f"Kann UI-Datei nicht öffnen: {ui_path}")
 
-loader = QUiLoader()
-window = loader.load(file)
-file.close()
+        loader = QUiLoader()
+        self.ui = loader.load(file, self)
+        file.close()
 
-window.show()
+        if not self.ui:
+            raise RuntimeError("UI konnte nicht geladen werden")
 
-sys.exit(app.exec())
+        self.setCentralWidget(self.ui)
+        self.ui.pushButton.clicked.connect(self.close)
+
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainApp()
+    window.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
