@@ -32,7 +32,6 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 
 def resource_path(relative_path):
-    """Ermittelt den absoluten Pfad zur Ressource, auch wenn das Programm als EXE läuft."""
     try:
         base_path = sys._MEIPASS  # PyInstaller temporärer Ordner
     except AttributeError:
@@ -40,31 +39,50 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+
 class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # window size
+        self.resize(641, 507)
+
+        # getting the path! to the built GUI (done with QT)
         ui_path = resource_path("portscanner_gui.ui")
 
+        # open UI-File as QFile
         file = QFile(ui_path)
         if not file.open(QFile.ReadOnly):
-            raise RuntimeError(f"Kann UI-Datei nicht öffnen: {ui_path}")
+            raise RuntimeError(f"Can not open UI-file at: {ui_path}")
 
+        # Version 1:
+        # QUiLoader load UI-File on runtime
         loader = QUiLoader()
         self.ui = loader.load(file, self)
         file.close()
 
         if not self.ui:
-            raise RuntimeError("UI konnte nicht geladen werden")
+            raise RuntimeError("unable to load the UI")
 
+
+        # setting central widget in main window
         self.setCentralWidget(self.ui)
-        self.ui.pushButton.clicked.connect(self.close)
+
+        # laying function on clear Button
+        self.ui.closeBtn.clicked.connect(self.close)
 
 
 def main():
+    # creating a QT instance with commands for the application
     app = QApplication(sys.argv)
+
+    # creating an object of the windows class as a invisible python object
     window = MainApp()
+
+    # setting the windows visible
     window.show()
+
+    # app.exec -> starting an infinitive loop which waits for user interaction
     sys.exit(app.exec())
 
 
