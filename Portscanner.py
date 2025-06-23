@@ -2,7 +2,11 @@
 Copyright © 2025 Martin Tastler
 
 DEUTSCH:
+<<<<<<< HEAD
 Dieses Programm und der Quellcode dürfen ausschließlich für private und nicht-kommerzielle Zwecke verwendet werden.
+=======
+Dieses Programm und der Quellcode dürfen ausschließlich für private und nicht-kommerzielle Zwecke verwendet werden. 
+>>>>>>> 4360e04fc611174ba84565bfded405457fff0e0f
 Jede kommerzielle Nutzung, Veränderung, Verbreitung oder Veröffentlichung ist ohne ausdrückliche schriftliche Erlaubnis des Autors untersagt.
 
 Das Kopieren oder Verwenden einzelner Codebestandteile für andere Projekte ist ebenfalls nicht gestattet, sofern keine vorherige Zustimmung vorliegt.
@@ -31,13 +35,13 @@ from PySide6.QtCore import QFile
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QMainWindow
 
+
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS  # PyInstaller temporärer Ordner
     except AttributeError:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
-
 
 
 class MainApp(QMainWindow):
@@ -49,6 +53,8 @@ class MainApp(QMainWindow):
 
         # getting the path! to the built GUI (done with QT)
         ui_path = resource_path("portscanner_gui.ui")
+        
+
         # open UI-File as QFile
         file = QFile(ui_path)
         if not file.open(QFile.ReadOnly):
@@ -59,6 +65,7 @@ class MainApp(QMainWindow):
         loader = QUiLoader()
         self.ui = loader.load(file, self)
         file.close()
+
         if not self.ui:
             raise RuntimeError("unable to load the UI")
 
@@ -76,11 +83,18 @@ class MainApp(QMainWindow):
             self.ui.setupUi(self)
         """
 
+
+        if not self.ui:
+            raise RuntimeError("unable to load the UI")
+
+
+
         # setting central widget in main window
         self.setCentralWidget(self.ui)
 
         # laying function on clear Button
         self.ui.closeBtn.clicked.connect(self.close)
+
 
 """
 -> Initializing QT Application
