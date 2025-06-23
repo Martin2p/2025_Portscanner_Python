@@ -2,11 +2,9 @@
 Copyright © 2025 Martin Tastler
 
 DEUTSCH:
-<<<<<<< HEAD
+
 Dieses Programm und der Quellcode dürfen ausschließlich für private und nicht-kommerzielle Zwecke verwendet werden.
-=======
-Dieses Programm und der Quellcode dürfen ausschließlich für private und nicht-kommerzielle Zwecke verwendet werden. 
->>>>>>> 4360e04fc611174ba84565bfded405457fff0e0f
+
 Jede kommerzielle Nutzung, Veränderung, Verbreitung oder Veröffentlichung ist ohne ausdrückliche schriftliche Erlaubnis des Autors untersagt.
 
 Das Kopieren oder Verwenden einzelner Codebestandteile für andere Projekte ist ebenfalls nicht gestattet, sofern keine vorherige Zustimmung vorliegt.
@@ -30,10 +28,13 @@ Date: June 2025
 """
 import sys
 import os
+import socket
 
 from PySide6.QtCore import QFile
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QMainWindow
+
+from ui_portscanner_gui import Ui_MainWindow
 
 
 def resource_path(relative_path):
@@ -49,10 +50,11 @@ class MainApp(QMainWindow):
         super().__init__()
 
         # window size
-        self.resize(641, 507)
+        self.resize(640, 480)
 
         # getting the path! to the built GUI (done with QT)
-        ui_path = resource_path("portscanner_gui.ui")
+        ui_path = os.path.abspath("portscanner_gui.ui")
+        print(f"Loading UI-File from: {ui_path}")
         
 
         # open UI-File as QFile
@@ -60,14 +62,20 @@ class MainApp(QMainWindow):
         if not file.open(QFile.ReadOnly):
             raise RuntimeError(f"Can not open UI-file at: {ui_path}")
 
+
         # Version 1:
         # QUiLoader load UI-File on runtime
+        """
         loader = QUiLoader()
         self.ui = loader.load(file, self)
         file.close()
 
         if not self.ui:
             raise RuntimeError("unable to load the UI")
+            
+        # setting central widget in main window
+        self.setCentralWidget(self.ui)
+        """
 
         # Version 2:
         # if the GUI look is finished
@@ -76,12 +84,12 @@ class MainApp(QMainWindow):
         
         then:
         from ui_portscanner_gui import Ui_MainWindow
-        
-        def __init__(self):
-            super().__init__()
-            self.ui = Ui_MainWindow()
-            self.ui.setupUi(self)
-        """
+            """
+
+        # Setup of the UI
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+
 
 
         if not self.ui:
@@ -89,11 +97,28 @@ class MainApp(QMainWindow):
 
 
 
-        # setting central widget in main window
-        self.setCentralWidget(self.ui)
 
+
+        # Button Events:
         # laying function on clear Button
         self.ui.closeBtn.clicked.connect(self.close)
+
+        # calling method for getting the own IP Address
+        self.ui.myIPBtn.clicked.connect(self.showOwnIP)
+
+
+    # function for getting the own IP Address
+    def showOwnIP(self):
+        # getting device name
+        hostname = socket.gethostname()
+
+        # getting IP from device name
+        local_ip = socket.gethostbyname(hostname)
+
+        self.ui.ipAddressText.setText(local_ip)
+
+        # testprint in console
+        print(local_ip)
 
 
 """
