@@ -91,12 +91,8 @@ class MainApp(QMainWindow):
         self.ui.setupUi(self)
 
 
-
         if not self.ui:
             raise RuntimeError("unable to load the UI")
-
-
-
 
 
         # Button Events:
@@ -120,6 +116,11 @@ class MainApp(QMainWindow):
         # testprint in console
         print(local_ip)
 
+    # function for getting open ports on the system
+    def showOpenPorts(self):
+
+
+        self.ui.freePortsText.setText(free_ports)
 
 """
 -> Initializing QT Application
