@@ -34,7 +34,7 @@ from PySide6.QtCore import QFile
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-from ui_portscanner_gui import Ui_MainWindow
+from portscanner_gui import Ui_MainWindow
 
 
 def resource_path(relative_path):
@@ -80,7 +80,13 @@ class MainApp(QMainWindow):
         # Version 2:
         # if the GUI look is finished
         """
-        in terminal: pyuic5 portscanner_gui.ui -o ui_portscanner_gui.py
+        in terminal: 
+        pyuic5 portscanner_gui.ui -o ui_portscanner_gui.py
+        or
+        pyside6-uic portscanner_gui.ui -o ui_portscanner_gui.py
+        or
+        pyuic6 portscanner_gui.ui -o ui_portscanner_gui.py
+
         
         then:
         from ui_portscanner_gui import Ui_MainWindow
@@ -102,6 +108,8 @@ class MainApp(QMainWindow):
         # calling method for getting the own IP Address
         self.ui.myIPBtn.clicked.connect(self.showOwnIP)
 
+        # calling method for getting free Ports on the system
+        self.ui.freeBtn.clicked.connect(self.showOpenPorts)
 
     # function for getting the own IP Address
     def showOwnIP(self):
@@ -119,8 +127,27 @@ class MainApp(QMainWindow):
     # function for getting open ports on the system
     def showOpenPorts(self):
 
+        host = "127.0.0.1"
+        start = 1
+        end = 1024
+        timeout = 0.5
 
-        self.ui.freePortsText.setText(free_ports)
+        self.ui.freePortsText.setText(f"Scanning {host} at ports {start} to {end}...")
+        openPorts = []
+
+        for port in range(start, end + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(timeout)
+                result = s.connect_ex((host, port))
+
+                # connection was successful:
+                if result == 0:
+                    self.ui.freePortsText.append(f"[+] Port {port}")
+                    openPorts.append(port)
+
+        return openPorts
+
+       # self.ui.freePortsText.setText(openPorts)
 
 """
 -> Initializing QT Application
