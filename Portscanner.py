@@ -26,14 +26,19 @@ martin.tastler@posteo.de
 Date: June 2025
 
 """
-import sys
-import os
-import socket
+import sys, os, socket, time
 
-from PySide6.QtCore import QFile
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtCore import QThread, pyqtSignal, QFile
+from PyQt6.QtWidgets import QApplication, QMainWindow
 
+"""
+     in terminal: 
+     pyuic5 portscanner_gui.ui -o ui_portscanner_gui.py
+     or
+     pyside6-uic portscanner_gui.ui -o ui_portscanner_gui.py
+     or
+     pyuic6 portscanner_gui.ui -o ui_portscanner_gui.py
+ """
 from portscanner_gui import Ui_MainWindow
 
 
@@ -43,6 +48,34 @@ def resource_path(relative_path):
     except AttributeError:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+
+# Scanner for anit freezing window
+class ScannerThread(QThread):
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(list)
+
+    def __init__(self,  host="127.0.0.1", start=1, end=1024, timeout=0.5):
+        super().__init__()
+        self.host = host
+        self.start_port = start
+        self.end_port = end
+        self.timeout = timeout
+
+
+    def run(self):
+        open_ports = []
+        for port in range(self.start_port, self.end_port + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(self.timeout)
+                result = s.connect_ex((self.host, port))
+                if result == 0:
+                    open_ports.append(port)
+            progress = int((port - self.start_port) / (self.end_port - self.start_port) * 100)
+            self.progress.emit(progress)
+        self.finished.emit(open_ports)
+
+
 
 
 class MainApp(QMainWindow):
@@ -55,42 +88,6 @@ class MainApp(QMainWindow):
         # getting the path! to the built GUI (done with QT)
         ui_path = os.path.abspath("portscanner_gui.ui")
         print(f"Loading UI-File from: {ui_path}")
-        
-
-        # open UI-File as QFile
-        file = QFile(ui_path)
-        if not file.open(QFile.ReadOnly):
-            raise RuntimeError(f"Can not open UI-file at: {ui_path}")
-
-
-        # Version 1:
-        # QUiLoader load UI-File on runtime
-        """
-        loader = QUiLoader()
-        self.ui = loader.load(file, self)
-        file.close()
-
-        if not self.ui:
-            raise RuntimeError("unable to load the UI")
-            
-        # setting central widget in main window
-        self.setCentralWidget(self.ui)
-        """
-
-        # Version 2:
-        # if the GUI look is finished
-        """
-        in terminal: 
-        pyuic5 portscanner_gui.ui -o ui_portscanner_gui.py
-        or
-        pyside6-uic portscanner_gui.ui -o ui_portscanner_gui.py
-        or
-        pyuic6 portscanner_gui.ui -o ui_portscanner_gui.py
-
-        
-        then:
-        from ui_portscanner_gui import Ui_MainWindow
-            """
 
         # Setup of the UI
         self.ui = Ui_MainWindow()
@@ -100,7 +97,6 @@ class MainApp(QMainWindow):
         if not self.ui:
             raise RuntimeError("unable to load the UI")
 
-
         # Button Events:
         # laying function on clear Button
         self.ui.closeBtn.clicked.connect(self.close)
@@ -109,7 +105,35 @@ class MainApp(QMainWindow):
         self.ui.myIPBtn.clicked.connect(self.showOwnIP)
 
         # calling method for getting free Ports on the system
-        self.ui.freeBtn.clicked.connect(self.showOpenPorts)
+        self.ui.openPortsBtn.clicked.connect(self.showOpenPorts)
+        self.ui.progressBarOpen.setMaximum(100)
+
+
+
+    # function for getting open ports on the system
+    def showOpenPorts(self):
+
+        self.ui.openPortsBtn.setEnabled(False)
+        self.ui.openPortsText.setText(f"Scanning...")
+
+        self.thread = ScannerThread()
+        self.thread.progress.connect(self.ui.progressBarOpen.setValue)
+        self.thread.finished.connect(self.scan_finished)
+        self.thread.start()
+
+
+    def scan_finished(self,open_ports):
+        self.ui.openPortsBtn.setEnabled(True)
+        if open_ports:
+            self.ui.openPortsText.append("Free ports on your system:")
+            for port in open_ports:
+                self.ui.openPortsText.append(f"[+] Port {port}")
+        else:
+            self.ui.openPortsText.append("No ports are.")
+
+    # self.ui.freePortsText.setText(openPorts)
+
+
 
     # function for getting the own IP Address
     def showOwnIP(self):
@@ -124,30 +148,7 @@ class MainApp(QMainWindow):
         # testprint in console
         print(local_ip)
 
-    # function for getting open ports on the system
-    def showOpenPorts(self):
 
-        host = "127.0.0.1"
-        start = 1
-        end = 1024
-        timeout = 0.5
-
-        self.ui.freePortsText.setText(f"Scanning {host} at ports {start} to {end}...")
-        openPorts = []
-
-        for port in range(start, end + 1):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)
-                result = s.connect_ex((host, port))
-
-                # connection was successful:
-                if result == 0:
-                    self.ui.freePortsText.append(f"[+] Port {port}")
-                    openPorts.append(port)
-
-        return openPorts
-
-       # self.ui.freePortsText.setText(openPorts)
 
 """
 -> Initializing QT Application
