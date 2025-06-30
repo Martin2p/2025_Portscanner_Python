@@ -104,10 +104,25 @@ class MainApp(QMainWindow):
         # calling method for getting the own IP Address
         self.ui.myIPBtn.clicked.connect(self.showOwnIP)
 
-        # calling method for getting free Ports on the system
+        # calling method for getting open Ports on the system
+        self.ui.freeBtn.cicked.connect(self.showFreePorts)
+        self.ui.progressBarFree.setMaximum(100)
+
+        # calling method for getting open Ports on the system
         self.ui.openPortsBtn.clicked.connect(self.showOpenPorts)
         self.ui.progressBarOpen.setMaximum(100)
 
+
+    # function for getting free ports
+    def showFreePorts(self):
+
+        self.ui.freeBtn.setEnabled(False)
+        self.ui.freePortsText.setText(f"Scanning")
+
+        self.thread = ScannerThread()
+        self.thread.progress.connect(self.ui.progressBarFree.setValue)
+        self.thread.finished.connect(self.scan_finished)
+        self.thread.start()
 
 
     # function for getting open ports on the system
@@ -130,9 +145,6 @@ class MainApp(QMainWindow):
                 self.ui.openPortsText.append(f"[+] Port {port}")
         else:
             self.ui.openPortsText.append("No ports are.")
-
-    # self.ui.freePortsText.setText(openPorts)
-
 
 
     # function for getting the own IP Address
