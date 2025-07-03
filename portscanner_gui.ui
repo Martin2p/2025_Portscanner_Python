@@ -17,7 +17,7 @@
    <widget class="QTextEdit" name="localHostsText">
     <property name="geometry">
      <rect>
-      <x>300</x>
+      <x>330</x>
       <y>140</y>
       <width>281</width>
       <height>141</height>
@@ -96,9 +96,9 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>230</x>
+      <x>270</x>
       <y>10</y>
-      <width>161</width>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
@@ -128,7 +128,7 @@
    <widget class="QRadioButton" name="radioButton">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>340</x>
       <y>100</y>
       <width>95</width>
       <height>22</height>
@@ -141,9 +141,9 @@
    <widget class="QRadioButton" name="radioButton_2">
     <property name="geometry">
      <rect>
-      <x>420</x>
+      <x>470</x>
       <y>100</y>
-      <width>161</width>
+      <width>131</width>
       <height>22</height>
      </rect>
     </property>
@@ -154,7 +154,7 @@
    <widget class="QPushButton" name="clearBtn">
     <property name="geometry">
      <rect>
-      <x>340</x>
+      <x>330</x>
       <y>400</y>
       <width>131</width>
       <height>26</height>
@@ -167,7 +167,7 @@
    <widget class="QPushButton" name="closeBtn">
     <property name="geometry">
      <rect>
-      <x>500</x>
+      <x>480</x>
       <y>400</y>
       <width>131</width>
       <height>26</height>

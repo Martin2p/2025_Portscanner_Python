@@ -50,8 +50,8 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-# Scanner for anit freezing window
-class ScannerThread(QThread):
+# Scanner for open Ports for anit freezing window
+class openPortsScanner(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(list)
 
@@ -75,7 +75,32 @@ class ScannerThread(QThread):
             self.progress.emit(progress)
         self.finished.emit(open_ports)
 
+# Scanner for open Ports for anit freezing window
+class freePortsScanner(QThread):
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(list)
 
+    def __init__(self, start=1, end=65535):
+        super().__init__()
+        self.start_port = start
+        self.end_port = end
+
+    def run(self):
+        free_ports = []
+        total_ports = self.end_port - self.start_port + 1
+
+        for idx, port in enumerate(range(self.start_port, self.end_port + 1), start=1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.01)
+                try:
+                    s.bind(("", port))  # if its possible -> Port is free
+                    free_ports.append(port)
+                except OSError:
+                    pass  # Port not free
+
+            self.progress.emit(int((idx / total_ports) * 100))
+
+        self.finished.emit(free_ports)
 
 
 class MainApp(QMainWindow):
@@ -105,7 +130,7 @@ class MainApp(QMainWindow):
         self.ui.myIPBtn.clicked.connect(self.showOwnIP)
 
         # calling method for getting open Ports on the system
-        self.ui.freeBtn.cicked.connect(self.showFreePorts)
+        self.ui.freeBtn.clicked.connect(self.showFreePorts)
         self.ui.progressBarFree.setMaximum(100)
 
         # calling method for getting open Ports on the system
@@ -119,9 +144,9 @@ class MainApp(QMainWindow):
         self.ui.freeBtn.setEnabled(False)
         self.ui.freePortsText.setText(f"Scanning")
 
-        self.thread = ScannerThread()
+        self.thread = freePortsScanner()
         self.thread.progress.connect(self.ui.progressBarFree.setValue)
-        self.thread.finished.connect(self.scan_finished)
+        self.thread.finished.connect(self.scan_free_finished)
         self.thread.start()
 
 
@@ -131,13 +156,14 @@ class MainApp(QMainWindow):
         self.ui.openPortsBtn.setEnabled(False)
         self.ui.openPortsText.setText(f"Scanning...")
 
-        self.thread = ScannerThread()
+        self.thread = openPortsScanner()
         self.thread.progress.connect(self.ui.progressBarOpen.setValue)
-        self.thread.finished.connect(self.scan_finished)
+        self.thread.finished.connect(self.scan_open_finished)
         self.thread.start()
 
 
-    def scan_finished(self,open_ports):
+    # function finish open ports
+    def scan_open_finished(self,open_ports):
         self.ui.openPortsBtn.setEnabled(True)
         if open_ports:
             self.ui.openPortsText.append("Free ports on your system:")
@@ -145,6 +171,17 @@ class MainApp(QMainWindow):
                 self.ui.openPortsText.append(f"[+] Port {port}")
         else:
             self.ui.openPortsText.append("No ports are.")
+
+
+    # function finish free ports
+    def scan_free_finished(self, open_ports):
+        self.ui.freeBtn.setEnabled(True)
+        if open_ports:
+            self.ui.freePortsText.append("Free ports on your system:")
+            for port in open_ports:
+                self.ui.freePortsText.append(f"[+] Port {port}")
+        else:
+            self.ui.freePortsText.append("No ports are.")
 
 
     # function for getting the own IP Address
