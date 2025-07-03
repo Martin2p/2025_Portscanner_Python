@@ -1,6 +1,13 @@
 # 2025_Portscanner_Python
 A local Network Portscanner in Python
 
+Current status
+
+![Screenshot](2025-07-03PythonPortscanner.png)
+
+
+
+
 
 License / Lizenz
 
