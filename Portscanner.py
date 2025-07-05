@@ -23,7 +23,7 @@ Author / Autor: Martin Tastler
 
 martin.tastler@posteo.de
 
-Date: June 2025
+Date: July 2025
 
 """
 import sys, os, socket, time
@@ -74,6 +74,7 @@ class openPortsScanner(QThread):
             progress = int((port - self.start_port) / (self.end_port - self.start_port) * 100)
             self.progress.emit(progress)
         self.finished.emit(open_ports)
+
 
 # Scanner for open Ports for anit freezing window
 class freePortsScanner(QThread):
