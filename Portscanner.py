@@ -23,7 +23,7 @@ Author / Autor: Martin Tastler
 
 martin.tastler@posteo.de
 
-Date: July 2025
+Date: August 2025
 
 """
 import sys, os, socket, time
@@ -54,7 +54,8 @@ def resource_path(relative_path):
 class openPortsScanner(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(list)
-
+    
+     # function scanning open ports on local host
     def __init__(self,  host="127.0.0.1", start=1, end=1024, timeout=0.5):
         super().__init__()
         self.host = host
