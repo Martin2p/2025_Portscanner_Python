@@ -125,7 +125,7 @@
      <string>Scan local network for hosts</string>
     </property>
    </widget>
-   <widget class="QRadioButton" name="radioButton">
+   <widget class="QRadioButton" name="rBtnDNS">
     <property name="geometry">
      <rect>
       <x>420</x>
@@ -138,7 +138,7 @@
      <string>with DNS</string>
     </property>
    </widget>
-   <widget class="QRadioButton" name="radioButton_2">
+   <widget class="QRadioButton" name="rBtnARP">
     <property name="geometry">
      <rect>
       <x>510</x>
@@ -242,7 +242,7 @@
      <string>Stop</string>
     </property>
    </widget>
-   <widget class="QRadioButton" name="radioButton_3">
+   <widget class="QRadioButton" name="rBtnPing">
     <property name="geometry">
      <rect>
       <x>330</x>
