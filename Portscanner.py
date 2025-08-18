@@ -47,7 +47,7 @@ from portscanner_gui import Ui_MainWindow
 
 def resource_path(relative_path):
     try:
-        base_path = sys._MEIPASS  # PyInstaller temporärer Ordner
+        base_path = sys._MEIPASS  # PyInstaller temporary Folder
     except AttributeError:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
@@ -112,7 +112,7 @@ class networkScanner(QThread):
         if hostnames is None:
             hostnames = ["raspberrypi", "printer", "pc01"]
 
-        results = {}
+        results = []
         for host in hostnames:
             try:
                 ip = socket.gethostbyname(host)
@@ -202,9 +202,6 @@ class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # creating instance of Networkscanner
-        #self.scanner = networkScanner(mode="ping", network="192.168.1.0/24")
-
         # window size
         self.resize(640, 480)
 
@@ -271,14 +268,14 @@ class MainApp(QMainWindow):
         self.ui.openPortsBtn.setEnabled(False)
         self.ui.openPortsText.setText(f"Scanning...")
 
-        self.thread = openPortsScanner()
-        self.thread.progress.connect(self.ui.progressBarOpen.setValue)
-        self.thread.finished.connect(self.scan_open_finished)
-        self.thread.start()
+        thread = openPortsScanner()
+        thread.progress.connect(self.ui.progressBarOpen.setValue)
+        thread.finished.connect(lambda ports, t=thread: self.scan_open_finished(ports, t))
+        thread.start()
 
 
     # function finish open ports
-    def scan_open_finished(self,open_ports):
+    def scan_open_finished(self,open_ports, thread):
         self.ui.openPortsBtn.setEnabled(True)
         if open_ports:
             self.ui.openPortsText.append("Open ports on your system:")
@@ -286,7 +283,7 @@ class MainApp(QMainWindow):
                 self.ui.openPortsText.append(f"[+] Port {port}")
         else:
             self.ui.openPortsText.append("No open ports found.")
-
+        thread.deleteLater()  # -> cleaning Thre
 
     # function finish free ports
     def scan_free_finished(self, open_ports):
@@ -301,16 +298,14 @@ class MainApp(QMainWindow):
 
     # function for getting the own IP Address
     def showOwnIP(self):
-        # getting device name
-        hostname = socket.gethostname()
-
-        # getting IP from device name
-        local_ip = socket.gethostbyname(hostname)
-
-        self.ui.ipAddressText.setText(local_ip)
-
-        # testprint in console
-        print(local_ip)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            # Verbindung ins Internet simulieren (keine Daten werden gesendet)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+        finally:
+            s.close()
+        self.ui.ipAddressText.setText(ip)
 
     # function for getting local IPs
     def showLocalHosts(self):
