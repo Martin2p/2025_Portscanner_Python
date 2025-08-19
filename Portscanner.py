@@ -26,14 +26,14 @@ martin.tastler@posteo.de
 Date: August 2025
 
 """
-import sys, os, socket, time
+import sys, os, socket
 import subprocess
 import platform
 import ipaddress
+import threading
 
-from PyQt6.QtCore import QThread, pyqtSignal, QFile
+from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMainWindow
-from click import command
 
 """
      in terminal: 
@@ -44,6 +44,8 @@ from click import command
      pyuic6 portscanner_gui.ui -o ui_portscanner_gui.py
  """
 from portscanner_gui import Ui_MainWindow
+
+
 
 def resource_path(relative_path):
     try:
@@ -66,7 +68,6 @@ class networkScanner(QThread):
     # starting a own process
     progress = pyqtSignal(int)
     finished = pyqtSignal(list)
-
 
     def __init__(self, mode="ping", network="192.168.1.0/24"):
         super().__init__()  # calling QThread-constructor
@@ -93,6 +94,10 @@ class networkScanner(QThread):
         total = len(all_ips)
 
         for i, ip in enumerate(all_ips, start=1):
+            if self.stop_event.is_set():
+                break
+
+
             ip = str(ip)
             param = "-n" if platform.system().lower() == "windows" else "-c"
             command = ["ping", param, "1", ip]
@@ -156,6 +161,16 @@ class openPortsScanner(QThread):
         self.end_port = end
         self.timeout = timeout
 
+    def stop_all_threads(self):
+        # Signal for stopping
+        self.stop_event.set()
+
+        # Optional: cancel running Threads or wait until they are finished
+        for t in self.threads:
+            if t.is_alive():
+                t.join()  # wait until thread ends
+
+        self.stop_event.clear()
 
     def run(self):
         open_ports = []
@@ -213,6 +228,16 @@ class MainApp(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
+        # List for Threads
+        self.threads = []
+
+        # Stop-Event global for all Threads
+        self.stop_event = threading.Event()
+
+        # connect Button
+        self.ui.stopBtn.clicked.connect(self.stop_all_threads)
+
+
 
         if not self.ui:
             raise RuntimeError("unable to load the UI")
@@ -250,7 +275,16 @@ class MainApp(QMainWindow):
 
         self.ui.ipAddressText.clear()
 
-    # function for getting free ports
+    # function for stopping
+    def stop_all_threads(self):
+        self.ui.stopBtn.setEnabled(False)
+        self.stop_event.set()  # sending a signal on all threads
+        for thread in self.threads:
+            thread.join()
+        self.threads.clear()  # reset List
+        self.stop_event.clear()
+
+        # function for getting free ports
     def showFreePorts(self):
 
         self.ui.freeBtn.setEnabled(False)
