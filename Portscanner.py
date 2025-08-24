@@ -62,7 +62,7 @@ except ImportError:
     SCAPY_AVAILABLE = False
 
 # Scanner-class for Network-scan
-class networkScanner(QThread):
+class NetworkScanner(QThread):
 
     # starting a own process
     progress = pyqtSignal(int)
@@ -72,8 +72,9 @@ class networkScanner(QThread):
         super().__init__()  # calling QThread-constructor
         self.network = network
         self.mode = mode
-        import threading
         self.stop_event = stop_event or threading.Event()
+        self.ping_thread = None
+        self.found_hosts = []
 
     def run(self):
         hosts = []
@@ -89,12 +90,16 @@ class networkScanner(QThread):
 
     # 1) Ping-Scan can not good work with Stop
     def scan_with_ping(self):
-        hosts_up = []
+
+        # Reset before starting
+        if hasattr(self, 'ping_thread') and self.ping_thread is not None:
+            self.ping_thread.stop_event.set()
+
         try:
             all_ips = list(ipaddress.IPv4Network(self.network, strict=False))
             total = len(all_ips) or 1
-
             is_win = platform.system().lower().startswith("win")
+
             for i, ip in enumerate(all_ips, start=1):
                 if self.stop_event.is_set():
                     break
@@ -106,30 +111,41 @@ class networkScanner(QThread):
 
                 try:
                     subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-                    hosts_up.append(ip)
+                    self.found_hosts.append(ip)
                 except subprocess.CalledProcessError:
                     pass
 
                 self.progress.emit(int(i / total * 100))
         except Exception as e:
             print(f"Ping scan error: {e}")
-        return hosts_up
+
 
     # 2) DNS Scan
-    def scan_with_dns(self, hostnames=None):
+    def scan_with_dns(self):
         if self.stop_event.is_set():
             return []
 
-        if hostnames is None:
-            hostnames = ["raspberrypi", "printer", "pc01"]
-
         results = []
-        for host in hostnames:
-            try:
-                ip = socket.gethostbyname(host)
-                results.append(f"{host}: {ip}")
-            except socket.gaierror:
-                results.append(f"{host}: not found")
+
+        try:
+            all_ips = list(ipaddress.IPv4Network(self.network, strict=False))
+            total = len(all_ips) or 1
+
+            for i, ip in enumerate(all_ips, start=1):
+                if self.stop_event.is_set():
+                    break
+
+                try:
+                    host = socket.gethostbyaddr(str(ip))[0]  # Reverse DNS
+                    results.append(f"{host}: {ip}")
+                except socket.herror:
+                    results.append(f"{ip}: no hostname")
+
+                self.progress.emit(int(i / total * 100))
+
+        except Exception as e:
+            print(f"DNS scan error: {e}")
+
         return results
 
     # 3) ARP Scan
@@ -148,17 +164,30 @@ class networkScanner(QThread):
 
             devices = []
             for _, received in result:
-                devices.append({'ip': received.psrc, 'mac': received.hwsrc})
+                ip = received.psrc
+                mac = received.hwsrc
+                # optional: versuche Hostname per socket.gethostbyaddr()
+                try:
+                    hostname = socket.gethostbyaddr(ip)[0]
+                except socket.herror:
+                    hostname = "unknown"
+                devices.append({"ip": ip, "mac": mac, "hostname": hostname})
             return devices
         except PermissionError:
             return []  # falls kein Admin
+
         except Exception as e:
             print(f"ARP Scan Error: {e}")
-        return []
+            return []
+
+    # own stop-Event
+    def stop(self):
+        self.stop_event = threading.Event()
+
 
 
 # Scanner for open Ports for anit freezing window
-class openPortsScanner(QThread):
+class OpenPortsScanner(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(list)
 
@@ -175,6 +204,7 @@ class openPortsScanner(QThread):
         open_ports = []
 
         for port in range(self.start_port, self.end_port + 1):
+            # check for stop is called
             if self.stop_event.is_set():
                 break
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -184,13 +214,17 @@ class openPortsScanner(QThread):
                     open_ports.append(port)
             progress = int((port - self.start_port) / (self.end_port - self.start_port) * 100)
             self.progress.emit(progress)
+
         self.finished.emit(open_ports)
 
+    # own stop-Event
     def stop(self):
         self.stop_event = threading.Event()
 
+
+
 # Scanner for open Ports for anit freezing window
-class freePortsScanner(QThread):
+class FreePortsScanner(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(list)
 
@@ -198,12 +232,18 @@ class freePortsScanner(QThread):
         super().__init__()
         self.start_port = start
         self.end_port = end
+        self.stop_event = threading.Event()
 
     def run(self):
         free_ports = []
         total_ports = self.end_port - self.start_port + 1
 
         for idx, port in enumerate(range(self.start_port, self.end_port + 1), start=1):
+
+            # check for stop is called
+            if self.stop_event.is_set():
+                break
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(0.01)
                 try:
@@ -216,6 +256,9 @@ class freePortsScanner(QThread):
 
         self.finished.emit(free_ports)
 
+    # own stop-Event
+    def stop(self):
+        self.stop_event = threading.Event()
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -243,72 +286,83 @@ class MainApp(QMainWindow):
         # Stop-Event global for all Threads
         self.stop_event = threading.Event()
 
-
-
         # Button Events:
         # laying function on close Button
         self.ui.closeBtn.clicked.connect(self.close)
 
         # calling method for clear fields
-        self.ui.clearBtn.clicked.connect(self.clearFields)
+        self.ui.clearBtn.clicked.connect(self.clear_fields)
 
         # calling method for getting the own IP Address
-        self.ui.myIPBtn.clicked.connect(self.showOwnIP)
+        self.ui.myIPBtn.clicked.connect(self.show_own_ip)
 
         # calling method for getting open Ports on the system
-        self.ui.freeBtn.clicked.connect(self.showFreePorts)
+        self.ui.freeBtn.clicked.connect(self.show_free_ports)
         self.ui.progressBarFree.setMaximum(100)
 
         # calling method for getting open Ports on the system
-        self.ui.openPortsBtn.clicked.connect(self.showOpenPorts)
+        self.ui.openPortsBtn.clicked.connect(self.show_open_ports)
         self.ui.progressBarOpen.setMaximum(100)
 
         # calling method for getting local hosts on the network
-        self.ui.hostsBtn.clicked.connect(self.showLocalHosts)
+        self.ui.hostsBtn.clicked.connect(self.show_local_hosts)
         self.ui.progressBarHosts.setMaximum(100)
 
         # calling method for stopping search
         self.ui.stopBtn.clicked.connect(self.stop_all_threads)
 
+        self.free_ports_thread = None
+        self.open_ports_thread = None
 
     # function for reset/cleaning fields
-    def clearFields(self):
+    def clear_fields(self):
         self.ui.localHostsText.clear()
         self.ui.progressBarHosts.setValue(0)
         self.ui.freePortsText.clear()
         self.ui.progressBarFree.setValue(0)
         self.ui.openPortsText.clear()
         self.ui.progressBarOpen.setValue(0)
-
         self.ui.ipAddressText.clear()
+
 
     # function for stopping
     def stop_all_threads(self):
         self.ui.stopBtn.setEnabled(False)
         self.stop_event.set()
-        if hasattr(self, "open_ports_thread") and self.open_ports_thread.isRunning():
-            self.open_ports_thread.stop_event.set()
-            self.ui.openPortsText.setText("Search stoppt.")
+
+        # test for stop on Open Ports Test
+        if hasattr(self, "open_ports_thread") and self.open_ports_thread is not None:
+            if self.open_ports_thread.isRunning():
+                self.open_ports_thread.stop_event.set()
+            self.open_ports_thread = None
             self.ui.stopBtn.setEnabled(True)
 
-        # function for getting free ports
-    def showFreePorts(self):
+        # test for stop on Free Ports Test
+        if hasattr(self, "free_ports_thread") and self.free_ports_thread is not None:
+            if self.free_ports_thread.isRunning():
+                self.free_ports_thread.stop_event.set()
+            self.free_ports_thread = None
+            self.ui.stopBtn.setEnabled(True)
+
+
+    # function for getting free ports
+    def show_free_ports(self):
 
         self.ui.freeBtn.setEnabled(False)
         self.ui.freePortsText.setText(f"Scanning")
 
-        self.thread = freePortsScanner()
-        self.thread.progress.connect(self.ui.progressBarFree.setValue)
-        self.thread.finished.connect(self.scan_free_finished)
-        self.thread.start()
+        self.free_ports_thread = FreePortsScanner()
+        self.free_ports_thread.progress.connect(self.ui.progressBarFree.setValue)
+        self.free_ports_thread.finished.connect(lambda ports, t=self.free_ports_thread: self.scan_free_finished(ports, t))
+        self.free_ports_thread.start()
 
 
     # function for getting open ports on the system
-    def showOpenPorts(self):
+    def show_open_ports(self):
         self.ui.openPortsBtn.setEnabled(False)
         self.ui.openPortsText.setText(f"Scanning...")
 
-        self.open_ports_thread = openPortsScanner()
+        self.open_ports_thread = OpenPortsScanner()
         self.open_ports_thread.progress.connect(self.ui.progressBarOpen.setValue)
         self.open_ports_thread.finished.connect(lambda ports,  t=self.open_ports_thread: self.scan_open_finished(ports, t))
         self.open_ports_thread.start()
@@ -323,21 +377,26 @@ class MainApp(QMainWindow):
                 self.ui.openPortsText.append(f"[+] Port {port}")
         else:
             self.ui.openPortsText.append("No open ports found.")
-        thread.deleteLater()  # -> cleaning Thre
+        thread.deleteLater()
+        if hasattr(self, 'free_ports_thread') and self.free_ports_thread == thread:
+            self.open_ports_thread = None
 
     # function finish free ports
-    def scan_free_finished(self, open_ports):
+    def scan_free_finished(self, free_ports, thread):
         self.ui.freeBtn.setEnabled(True)
-        if open_ports:
+        if free_ports:
             self.ui.freePortsText.append("Free ports on your system:")
-            for port in open_ports:
+            for port in free_ports:
                 self.ui.freePortsText.append(f"[+] Port {port}")
         else:
             self.ui.freePortsText.append("No free ports found.")
+        thread.deleteLater()
+        if hasattr(self, 'free_ports_thread') and self.free_ports_thread == thread:
+            self.free_ports_thread = None
 
 
     # function for getting the own IP Address
-    def showOwnIP(self):
+    def show_own_ip(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # Verbindung ins Internet simulieren (keine Daten werden gesendet)
@@ -347,8 +406,9 @@ class MainApp(QMainWindow):
             s.close()
         self.ui.ipAddressText.setText(ip)
 
+
     # function for getting local IPs
-    def showLocalHosts(self):
+    def show_local_hosts(self):
         self.ui.hostsBtn.setEnabled(False)
         self.ui.localHostsText.setText("Scanning...")
 
@@ -363,13 +423,19 @@ class MainApp(QMainWindow):
 
         if mode:
             # Thread starten
-            self.thread = networkScanner(mode=mode, network="192.168.1.0/24", stop_event=self.stop_event)
+            self.thread = NetworkScanner(mode=mode, network="192.168.1.0/24", stop_event=self.stop_event)
             self.thread.progress.connect(self.ui.progressBarHosts.setValue)
             self.thread.finished.connect(self.scan_hosts_finished)
             self.thread.start()
         else:
             self.ui.localHostsText.setText("Please choose a Scan-Methode.")
             self.ui.hostsBtn.setEnabled(True)
+
+        """
+        -> Stop Event???
+        
+        """
+
 
     # results in a separate methode
     def scan_hosts_finished(self, hosts):
@@ -383,7 +449,10 @@ class MainApp(QMainWindow):
 
         # ARP Results
         if isinstance(hosts[0], dict):
-            text = "\n".join(f"{d['ip']} ({d['mac']})" for d in hosts)
+            text = ""
+            for d in hosts:
+                text += f"{d['hostname']}:\n{'-' * len(d['hostname'])}\n{d['mac']} | {d['ip']}\n\n"
+
         # Ping or DNS results
         elif isinstance(hosts[0], str):
             text = "\n".join(hosts)
@@ -391,6 +460,7 @@ class MainApp(QMainWindow):
             text = str(hosts)
 
         self.ui.localHostsText.setText(text)
+
 
 """
 -> Initializing QT Application
@@ -402,11 +472,14 @@ def main():
     # creating a QT instance with commands for the application
     app = QApplication(sys.argv)
 
-    # creating an object of the windows class as a invisible python object
-    window = MainApp()
-
-    # setting the windows visible
-    window.show()
+    try:
+        # creating an object of the windows class as a invisible python object
+        window = MainApp()
+        # setting the windows visible
+        window.show()
+    except Exception as e:
+        print("Fehler beim Start:", e)
+        raise
 
     # app.exec -> starting an infinitive loop which waits for user interaction
     sys.exit(app.exec())
