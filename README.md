@@ -25,4 +25,3 @@ Details siehe LICENSE.txt.
 Fragen, Feedback oder Interesse an einer Lizenz für kommerzielle Nutzung?
 
 📧 E-Mail: martin.tastler@posteo.de
-Status
